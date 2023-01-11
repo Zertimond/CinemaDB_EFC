@@ -35,7 +35,7 @@ public partial class CinemaContext : DbContext
         var config = builder.Build();
         string? connectionString = config.GetConnectionString("DefaultConnection");
 
-        var options = optionsBuilder.UseSqlServer(connectionString).Options;
+        optionsBuilder.UseSqlServer(connectionString).UseLazyLoadingProxies();
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
