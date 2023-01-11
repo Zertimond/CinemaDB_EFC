@@ -153,7 +153,7 @@ namespace CinemaDBEFC.Migrations
 
                     b.HasAlternateKey("FirstName", "LastName", "MiddleName");
 
-                    b.ToTable("Person");
+                    b.ToTable("Person", (string)null);
 
                     b.UseTptMappingStrategy();
                 });
