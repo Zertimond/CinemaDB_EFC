@@ -1,6 +1,8 @@
 ﻿using CinemaDB_EFC.Models;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using System.Runtime.CompilerServices;
+using System.Security.Cryptography.X509Certificates;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 
 namespace CinemaDB_EFC
@@ -11,31 +13,41 @@ namespace CinemaDB_EFC
         {
             //union, except, intersect, join, distinct, group by, агрегатні функції
 
-            //список фільмів та сеансів
-            using (CinemaContext db = new CinemaContext())
-            {
-                var film = db.Films.Select(x => new
-                {
-                    FilmId = x.FilmId,
-                    FilmName = x.FilmName,
-                });
-                foreach (var item in film)
-                {
-                    Console.WriteLine($"FilmName: {item.FilmName}");
-                    Console.WriteLine($"FilmId: {item.FilmId}\n");
-                }
-                Console.WriteLine("***********************");
-                var show = db.Shows.Select(x => new
-                {
-                    FilmId = x.FilmId,
-                    BoughtTickets = x.BoughtTickets,
-                });
-                foreach (var item in show)
-                {
-                    Console.WriteLine($"BoughtTickets: {item.BoughtTickets}");
-                    Console.WriteLine($"FilmId: {item.FilmId}\n");
-                }
-            }
+            ////список фільмів та сеансів
+            //using (CinemaContext db = new CinemaContext())
+            //{
+            //    var film = db.Films.Select(x => new
+            //    {
+            //        FilmId = x.FilmId,
+            //        FilmName = x.FilmName,
+            //    });
+            //    foreach (var item in film)
+            //    {
+            //        Console.WriteLine($"FilmName: {item.FilmName}");
+            //        Console.WriteLine($"FilmId: {item.FilmId}\n");
+            //    }
+            //    Console.WriteLine("***********************");
+            //    var show = db.Shows.Select(x => new
+            //    {
+            //        FilmId = x.FilmId,
+            //        BoughtTickets = x.BoughtTickets,
+            //    });
+            //    foreach (var item in show)
+            //    {
+            //        Console.WriteLine($"BoughtTickets: {item.BoughtTickets}");
+            //        Console.WriteLine($"FilmId: {item.FilmId}\n");
+            //    }
+            //    var cinema = db.Cinemas.Select(x => new
+            //    {
+            //        CinemaId = x.CinemaId,
+            //        CinemaName = x.CinemaName,
+            //    });
+            //    foreach (var item in cinema)
+            //    {
+            //        Console.WriteLine($"CinemaId: {item.CinemaId}");
+            //        Console.WriteLine($"CinemaName: {item.CinemaName}\n");
+            //    }
+            //}
 
             ////union
             //using (CinemaContext db = new CinemaContext())
@@ -176,6 +188,29 @@ namespace CinemaDB_EFC
             //    foreach (var p in films)
             //        Console.WriteLine($"FilmName: {p.FilmName} - Genre: {p.Genre}");
             //}
+
+            //Найпопулярніші кінотеатри
+            using (CinemaContext db = new CinemaContext())
+            {
+                var result = db.Shows
+                    //.Where(x => x.ShowDate.DayOfWeek.ToString() == "Saturday")
+                    .GroupBy(x => x.Hall!.CinemaId)
+                    .Select(x => new
+                    {
+                        CinemaId = x.Key,
+                        Tickets = x.Sum(y => y.BoughtTickets)
+                    })
+                    .OrderByDescending(x => x.Tickets)
+                    .Take(3)
+                    .Join(db.Cinemas, x => x.CinemaId, y => y.CinemaId, (x, y) => new
+                    {
+                        CinemaName = y.CinemaName,
+                        Tickets = x.Tickets
+                    })
+                    .ToList();
+                foreach (var x in result)
+                    Console.WriteLine($"CinemaName: {x.CinemaName} - Tickets: {x.Tickets}");
+            }
         }
     }
 }
