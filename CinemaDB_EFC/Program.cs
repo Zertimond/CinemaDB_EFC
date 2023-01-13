@@ -7,175 +7,108 @@ namespace CinemaDB_EFC
 {
     class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
-            //union, except, intersect, join, distinct, group by, агрегатні функції
-
-            //список фільмів та сеансів
-            using (CinemaContext db = new CinemaContext())
+            // lock
+            var locker = new object();
+            int Index = 0;
+            var clientThread = new ThreadStart(() =>
             {
-                var film = db.Films.Select(x => new
+                Console.WriteLine($"Client thread started{Thread.CurrentThread.ManagedThreadId}");
+                using (var context = new CinemaContext())
                 {
-                    FilmId = x.FilmId,
-                    FilmName = x.FilmName,
-                });
-                foreach (var item in film)
-                {
-                    Console.WriteLine($"FilmName: {item.FilmName}");
-                    Console.WriteLine($"FilmId: {item.FilmId}\n");
+                    for (int i = 0; i < 2; i++)
+                    {
+
+                        lock (locker)
+                        {
+                            Index++;
+                            context.Tickets.Add(new Ticket
+                            {
+                                TicketId = 20 + Index,
+                                ShowId = 4,
+                                Place = Index,
+                                Cost = 100
+                            });
+                            context.SaveChanges();
+                        }
+                    }
                 }
-                Console.WriteLine("***********************");
-                var show = db.Shows.Select(x => new
-                {
-                    FilmId = x.FilmId,
-                    BoughtTickets = x.BoughtTickets,
-                });
-                foreach (var item in show)
-                {
-                    Console.WriteLine($"BoughtTickets: {item.BoughtTickets}");
-                    Console.WriteLine($"FilmId: {item.FilmId}\n");
-                }
+            });
+            var thread1 = new Thread(clientThread);
+            var thread2 = new Thread(clientThread);
+            var thread3 = new Thread(clientThread);
+
+            thread1.Start();
+            thread2.Start();
+            thread3.Start();
+
+            var allThreadsAreDone = false;
+            while (!allThreadsAreDone)
+            {
+                allThreadsAreDone = thread1.ThreadState == System.Threading.ThreadState.Stopped &&
+                                    thread2.ThreadState == System.Threading.ThreadState.Stopped &&
+                                    thread3.ThreadState == System.Threading.ThreadState.Stopped;
             }
+            Console.WriteLine(Index);
 
-            ////union
-            //using (CinemaContext db = new CinemaContext())
-            //{
-            //    var films = db.Films.Where(u => u.FilmName == "Spider Man")
-            //        .Union(db.Films.Where(u => u.Genre == "Superhero"));
-            //    foreach (var item in films)
-            //        Console.WriteLine($"FilmName: {item.FilmName}");
-            //}
 
-            ////except
-            //using (CinemaContext db = new CinemaContext())
-            //{
-            //    var films = db.Films.Where(u => u.Genre == "Superhero")
-            //        .Except(db.Films.Where(u => u.FilmName == "Spider Man"));
-            //    foreach (var item in films)
-            //        Console.WriteLine($"FilmName: {item.FilmName}");
-            //}
+            //// паралельно зчитаю з БД
+            //// використовуючи Thread
+            //var db = new CinemaContext();
+            //var tickets = await db.Tickets.ToListAsync();
 
-            ////intersect
-            //using (CinemaContext db = new CinemaContext())
-            //{
-            //    var films = db.Films.Where(u => u.Genre == "Superhero")
-            //        .Intersect(db.Films.Where(u => u.FilmName == "Spider Man"));
-            //    foreach (var item in films)
-            //        Console.WriteLine($"FilmName: {item.FilmName}");
-            //}
 
-            ////join
-            //using (CinemaContext db = new CinemaContext())
+            //ThreadStart action = () =>
             //{
-            //    var films = db.Shows.Join(db.Films, // второй набор
-            //        u => u.FilmId, // свойство-селектор объекта из первого набора
-            //        c => c.FilmId, // свойство-селектор объекта из второго набора
-            //        (u, c) => new // результат
-            //        {
-            //            FilmName = c.FilmName,
-            //            Genre = c.Genre,
-            //            BoughtTickets = u.BoughtTickets
-            //        });
-            //    foreach (var u in films)
-            //        Console.WriteLine($"{u.FilmName} ({u.Genre}) - {u.BoughtTickets}");
-            //}
-
-            ////distinct
-            //using (CinemaContext db = new CinemaContext())
-            //{
-            //    var result = db.Shows.Select(x => x.BoughtTickets).Distinct();
-            //    foreach (var show in result)
+            //    for (int i = 0; i < (tickets.Count - 1) / 2; i++)
             //    {
-            //        Console.WriteLine($"BoughtTickets: {show}");
+            //        Console.WriteLine(tickets[i].Place + " " + tickets[i].Cost + " " + Thread.CurrentThread.ManagedThreadId);
+            //        Thread.Sleep(500);
             //    }
-            //}
-
-            ////group by and Count
-            //using (CinemaContext db = new CinemaContext())
+            //};
+            //ThreadStart action2 = () =>
             //{
-            //    var groups = from u in db.Tickets
-            //                 group u by u.Show!.FilmId into g
-            //                 select new
-            //                 {
-            //                     g.Key,
-            //                     Count = g.Count()
-            //                 };
-            //    foreach (var group in groups)
+            //    for (int i = (tickets.Count - 1) / 2; i < tickets.Count - 1; i++)
             //    {
-            //        Console.WriteLine($"FilmID: {group.Key} - Ticket number: {group.Count}");
+            //        Console.WriteLine(tickets[i].Place + " " + tickets[i].Cost + " " + Thread.CurrentThread.ManagedThreadId);
+            //        Thread.Sleep(500);
             //    }
-            //}
+            //};
 
-            //приклади різних стратегій завантаження зв'язаних даних
+            //var thread1 = new Thread(action);
+            //var thread2 = new Thread(action2);
 
-            ////Eager
-            //using (CinemaContext db = new CinemaContext())
+            //thread1.Start();
+            //thread2.Start();
+
+            //await db.DisposeAsync();
+
+            //// використовуючи Task
+            //var db = new CinemaContext();
+            //var tickets = await db.Tickets.ToListAsync();
+
+            //var task1 = Task.Run(() =>
             //{
-            //    var show = db.Shows.Include(x => x.Hall).ToList();
-            //    foreach (var film in show)
+            //    for (int i = 0; i < (tickets.Count - 1) / 2; i++)
             //    {
-            //        Console.WriteLine($"ShowId: {film.ShowId}");
-            //        Console.WriteLine($"BoughtTickets: {film.BoughtTickets}");
-            //        Console.WriteLine($"HallId: {film.Hall.HallId}");
-            //        Console.WriteLine("**********************************************");
+            //        Console.WriteLine(tickets[i].Place + " " + tickets[i].Cost + " " + Thread.CurrentThread.ManagedThreadId);
+            //        Task.Delay(500).Wait();
             //    }
-            //}
+            //});
 
-            ////Explicit
-            //using (CinemaContext db = new CinemaContext())
+            //var task2 = Task.Run(() =>
             //{
-            //    Show? show = db.Shows.FirstOrDefault();
-            //    if (show != null)
+            //    for (int i = (tickets.Count - 1) / 2; i < tickets.Count - 1; i++)
             //    {
-            //        db.Tickets.Where(u => u.ShowId == show.ShowId).Load();
-            //        Console.WriteLine($"ShowId: {show.ShowId}");
-            //        foreach (var u in show.Tickets)
-            //        {
-            //            Console.WriteLine($"Place: {u.Place}");
-            //            Console.WriteLine($"Cost: {u.Cost}");
-            //            Console.WriteLine("***********");
-            //        }
+            //        Console.WriteLine(tickets[i].Place + " " + tickets[i].Cost + " " + Thread.CurrentThread.ManagedThreadId);
+            //        Task.Delay(500).Wait();
             //    }
-            //}
+            //});
 
-            ////Lazy
-            //using (CinemaContext db = new CinemaContext())
-            //{
-            //    Show? show = db.Shows.FirstOrDefault();
-            //    if (show != null)
-            //    {
-            //        Console.WriteLine($"ShowId: {show.ShowId}");
-            //        foreach (var u in show.Tickets)
-            //        {
-            //            Console.WriteLine($"Place: {u.Place}");
-            //            Console.WriteLine($"Cost: {u.Cost}");
-            //            Console.WriteLine("***********");
-            //        }
-            //    }
-            //}
+            //await Task.WhenAll(task1, task2);
 
-            ////завантаження даних що не відслідковуються
-            //using (CinemaContext db = new CinemaContext())
-            //{
-            //    var show = db.Shows.AsNoTracking().FirstOrDefault(x => x.ShowId == 2);
-            //    if (show != null)
-            //    {
-            //        show.BoughtTickets = 10;
-            //        db.SaveChanges();
-            //    }
-            //    var shows = db.Shows.AsNoTracking().ToList();
-            //    foreach (var x in shows)
-            //        Console.WriteLine($"{x.ShowId} - {x.BoughtTickets}");
-            //}
-
-            ////виклик збережених процедур та функцій за допомогою Entity Framework
-            //using (CinemaContext db = new CinemaContext())
-            //{
-            //    SqlParameter param = new SqlParameter("@id", 2);
-            //    var films = db.Films.FromSqlRaw("SELECT * FROM GetFilmGenre (@id);", param).ToList();
-            //    foreach (var p in films)
-            //        Console.WriteLine($"FilmName: {p.FilmName} - Genre: {p.Genre}");
-            //}
+            //await db.DisposeAsync();
         }
     }
 }
